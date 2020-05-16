@@ -22,6 +22,12 @@ const work = async (robotId, to) => {
   bots[robotId - 1].onBar = to == 'bar';
 }
 
+const turnTable = (tableId, newSt, stIndex) => {
+  const table = document.getElementById('table-' + tableId);
+  table.className = 'table ' + newSt;
+  tableStates[tableId - 1] = stIndex;
+}
+
 const turnWaitingTable = (tableId, prev) => {
   const table = document.getElementById('table-' + tableId);
   table.classList.toggle(prev);
@@ -29,12 +35,13 @@ const turnWaitingTable = (tableId, prev) => {
   tableStates[tableId - 1] = 1;
 }
 
-const turnDirtyTable = (tableId) => {
+const turnEmptyTable = (tableId) => {
   const table = document.getElementById('table-' + tableId);
   table.classList.toggle('dirty');
   table.classList.toggle('empty');
   tableStates[tableId - 1] = 0;
 }
+
 
 const pingBot = async (i) => {
   if (bots[i].state === 0) {
@@ -48,7 +55,7 @@ const pingBot = async (i) => {
           setTimeout(function () {
             work(i + 1, "table-" + bots[i].table);
             setTimeout(function () {
-              turnWaitingTable(bots[i].table, 'waiting');
+              turnTable(bots[i].table, 'choosing', 1);
               bots[i] = {
                 state: 0,
                 table: 0
@@ -60,7 +67,7 @@ const pingBot = async (i) => {
       } else if (bots[i].state == 2) {
         await work(i + 1, "table-" + bots[i].table);
         setTimeout(function () {
-          turnDirtyTable(bots[i].table);
+          turnTable(bots[i].table, 'empty', 0);
           bots[i] = {
             state: 0,
             table: 0
@@ -81,12 +88,9 @@ const animateTable = () => {
   for (let i = 0; i < tables.length; i++) {
     const table = tables[i];
     table.addEventListener('click', (event) => {
-      let tableInstance = document.getElementById(event.target.id);
       let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
       if (tableStates[tableIndex] == 1) {
-        tableInstance.classList.toggle('choosing');
-        tableInstance.classList.toggle('waiting');
-        tableStates[tableIndex] = 2;
+        turnTable(tableIndex + 1, 'waiting', 2)
         taskOrder.push({ state: 1, table: tableIndex + 1 });
         for (let i = 0; i < bots.length; i++) {
           pingBot(i);
@@ -95,12 +99,9 @@ const animateTable = () => {
     })
     table.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      let tableInstance = document.getElementById(event.target.id);
       let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
       if (tableStates[tableIndex] == 1) {
-        tableInstance.classList.toggle('choosing');
-        tableInstance.classList.toggle('dirty');
-        tableStates[tableIndex] = 3;
+        turnTable(tableIndex + 1, 'dirty', 3)
         taskOrder.push({ state: 2, table: tableIndex + 1 });
         for (let i = 0; i < bots.length; i++) {
           pingBot(i);
@@ -144,22 +145,51 @@ const moveRobot = (robot, to) => {
 
 const animate = () => {
   animateTable();
-  document.getElementById('go').addEventListener('click', () => {
-    const robot = document.getElementById('robot-1');
-    const to = document.getElementById('to').value;
-    const toElement = document.getElementById(to);
-
-    moveRobot(robot, toElement);
-  })
 
   document.getElementById('visitor').addEventListener('click', () => {
     for (let i = 0; i < tableStates.length; i++) {
       if (tableStates[i] == 0) {
-        turnWaitingTable(i + 1, 'empty');
+        turnTable(i + 1, 'choosing', 1);
         break;
       }
     }
   })
+  document.getElementById('fire').addEventListener('click', () => {
+    taskOrder = [];
+    bots = [
+      {
+        state: 0,
+        table: 0,
+        onBar: false
+      },
+      {
+        state: 0,
+        table: 0,
+        onBar: false
+      }
+    ];
+
+    let dirtyTables = [];
+    for (let i = 0; i < tableStates.length; i++) {
+      if (tableStates[i] !== 0) {
+        turnTable(i + 1, 'dirty', 3);
+        dirtyTables.push({ state: 2, table: i + 1 });
+      }
+    }
+    for (let i = 0; i < bots.length; i++) {
+      work(i + 1, "kitchen");
+      setTimeout(function () {
+        bots[i] = {
+          state: 0,
+          table: 0
+        };
+        taskOrder = dirtyTables;
+        console.log(dirtyTables);
+        pingBot(i);
+      }, 10000);
+    }
+  })
+
 }
 
 window.onload = animate;
