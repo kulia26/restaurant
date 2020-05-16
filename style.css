@@ -110,6 +110,7 @@ body{
   height: 130px;
   position: absolute;
   background-size: 100%;
+  z-index: 10;
 }
 
 .robot.run{
