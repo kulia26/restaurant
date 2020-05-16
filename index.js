@@ -4,11 +4,13 @@ let tableStates = [0, 0, 0, 0];  // 0 - empty, 1 - choosing, 2 - making order, 3
 let bots = [
   {
     state: 0, // 0 - free, 1 - preparing order, 2 - clean table, 3 - fire
-    table: 0
+    table: 0,
+    onBar: true
   },
   {
     state: 0,
-    table: 0
+    table: 0,
+    onBar: true
   }
 ];
 
@@ -17,6 +19,21 @@ const work = async (robotId, to) => {
   const toElement = document.getElementById(to);
 
   moveRobot(robot, toElement);
+  bots[robotId - 1].onBar = to == 'bar';
+}
+
+const turnWaitingTable = (tableId, prev) => {
+  const table = document.getElementById('table-' + tableId);
+  table.classList.toggle(prev);
+  table.classList.toggle('choosing');
+  tableStates[tableId - 1] = 1;
+}
+
+const turnDirtyTable = (tableId) => {
+  const table = document.getElementById('table-' + tableId);
+  table.classList.toggle('dirty');
+  table.classList.toggle('empty');
+  tableStates[tableId - 1] = 0;
 }
 
 const pingBot = async (i) => {
@@ -31,6 +48,7 @@ const pingBot = async (i) => {
           setTimeout(function () {
             work(i + 1, "table-" + bots[i].table);
             setTimeout(function () {
+              turnWaitingTable(bots[i].table, 'waiting');
               bots[i] = {
                 state: 0,
                 table: 0
@@ -39,9 +57,19 @@ const pingBot = async (i) => {
             }, 4000);
           }, 4000);
         }, 4000);
+      } else if (bots[i].state == 2) {
+        await work(i + 1, "table-" + bots[i].table);
+        setTimeout(function () {
+          turnDirtyTable(bots[i].table);
+          bots[i] = {
+            state: 0,
+            table: 0
+          };
+          pingBot(i);
+        }, 4000);
       }
     }
-    else {
+    else if (!bots[i].onBar) {
       work(i + 1, "bar");
     }
   }
@@ -55,18 +83,25 @@ const animateTable = () => {
     table.addEventListener('click', (event) => {
       let tableInstance = document.getElementById(event.target.id);
       let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
-      // if (tableStates[tableIndex] == 0) {
-      //   tableInstance.classList.toggle('empty');
-      //   tableInstance.classList.toggle('choosing');
-      //   tableStates[tableIndex] = 1;
-      //   pingBot();
-      // }
-      console.log(tableStates[tableIndex])
       if (tableStates[tableIndex] == 1) {
         tableInstance.classList.toggle('choosing');
         tableInstance.classList.toggle('waiting');
         tableStates[tableIndex] = 2;
         taskOrder.push({ state: 1, table: tableIndex + 1 });
+        for (let i = 0; i < bots.length; i++) {
+          pingBot(i);
+        }
+      }
+    })
+    table.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      let tableInstance = document.getElementById(event.target.id);
+      let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
+      if (tableStates[tableIndex] == 1) {
+        tableInstance.classList.toggle('choosing');
+        tableInstance.classList.toggle('dirty');
+        tableStates[tableIndex] = 3;
+        taskOrder.push({ state: 2, table: tableIndex + 1 });
         for (let i = 0; i < bots.length; i++) {
           pingBot(i);
         }
@@ -120,10 +155,7 @@ const animate = () => {
   document.getElementById('visitor').addEventListener('click', () => {
     for (let i = 0; i < tableStates.length; i++) {
       if (tableStates[i] == 0) {
-        const table = document.getElementById('table-' + (i + 1));
-        table.classList.toggle('empty');
-        table.classList.toggle('choosing');
-        tableStates[i] = 1;
+        turnWaitingTable(i + 1, 'empty');
         break;
       }
     }
