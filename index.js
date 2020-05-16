@@ -4,13 +4,49 @@ let tableStates = [0, 0, 0, 0];  // 0 - empty, 1 - choosing, 2 - making order, 3
 let bots = [
   {
     state: 0, // 0 - free, 1 - preparing order, 2 - clean table, 3 - fire
-    task: {}
+    table: 0
   },
   {
     state: 0,
-    task: {}
+    table: 0
   }
 ];
+
+const work = async (robotId, to) => {
+  const robot = document.getElementById('robot-' + robotId);
+  const toElement = document.getElementById(to);
+
+  moveRobot(robot, toElement);
+}
+
+const pingBot = async (i) => {
+  if (bots[i].state === 0) {
+
+    if (taskOrder.length > 0) {
+      bots[i] = taskOrder.shift();
+      if (bots[i].state == 1) {
+        await work(i + 1, "table-" + bots[i].table);
+        setTimeout(function () {
+          work(i + 1, "kitchen");
+          setTimeout(function () {
+            work(i + 1, "table-" + bots[i].table);
+            setTimeout(function () {
+              bots[i] = {
+                state: 0,
+                table: 0
+              };
+              pingBot(i);
+            }, 4000);
+          }, 4000);
+        }, 4000);
+      }
+    }
+    else {
+      work(i + 1, "bar");
+    }
+  }
+
+}
 
 const animateTable = () => {
   const tables = document.getElementsByClassName('table');
@@ -18,17 +54,22 @@ const animateTable = () => {
     const table = tables[i];
     table.addEventListener('click', (event) => {
       let tableInstance = document.getElementById(event.target.id);
-      let tableIndex = parseInt(event.target.id[event.target.id.length - 1]);
-      if (tableStates[tableIndex] == 0) {
-        tableInstance.classList.toggle('empty');
-        tableInstance.classList.toggle('choosing');
-        tableStates[tableIndex] = 1;
-      }
-      else if (tableStates[tableIndex] == 1) {
+      let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
+      // if (tableStates[tableIndex] == 0) {
+      //   tableInstance.classList.toggle('empty');
+      //   tableInstance.classList.toggle('choosing');
+      //   tableStates[tableIndex] = 1;
+      //   pingBot();
+      // }
+      console.log(tableStates[tableIndex])
+      if (tableStates[tableIndex] == 1) {
         tableInstance.classList.toggle('choosing');
         tableInstance.classList.toggle('waiting');
         tableStates[tableIndex] = 2;
-        taskOrder.push({ type: 1, table: tableIndex });
+        taskOrder.push({ state: 1, table: tableIndex + 1 });
+        for (let i = 0; i < bots.length; i++) {
+          pingBot(i);
+        }
       }
     })
   }
@@ -64,7 +105,6 @@ const moveRobot = (robot, to) => {
     robot.classList.remove('run');
 
   }, time);
-
 }
 
 const animate = () => {
@@ -80,8 +120,7 @@ const animate = () => {
   document.getElementById('visitor').addEventListener('click', () => {
     for (let i = 0; i < tableStates.length; i++) {
       if (tableStates[i] == 0) {
-        const tables = document.getElementsByClassName('table');
-        const table = tables[i];
+        const table = document.getElementById('table-' + (i + 1));
         table.classList.toggle('empty');
         table.classList.toggle('choosing');
         tableStates[i] = 1;
