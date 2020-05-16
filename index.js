@@ -1,3 +1,5 @@
+const logsFileName = "logs.txt";
+
 let taskOrder = []; // {{type: 1|2|3, table: 0|1|2|3}} 
 let tableStates = [0, 0, 0, 0];  // 0 - empty, 1 - choosing, 2 - making order, 3 - dirty 
 
@@ -14,11 +16,14 @@ let bots = [
   }
 ];
 
+let logs = [];
+
 const work = async (robotId, to) => {
   const robot = document.getElementById('robot-' + robotId);
   const toElement = document.getElementById(to);
 
   moveRobot(robot, toElement);
+  createLog(`Robot with id=${robotId} moved to element ${to}`);
   bots[robotId - 1].onBar = to == 'bar';
 }
 
@@ -42,7 +47,6 @@ const turnEmptyTable = (tableId) => {
   tableStates[tableId - 1] = 0;
 }
 
-
 const pingBot = async (i) => {
   if (bots[i].state === 0) {
 
@@ -56,6 +60,7 @@ const pingBot = async (i) => {
             work(i + 1, "table-" + bots[i].table);
             setTimeout(function () {
               turnTable(bots[i].table, 'choosing', 1);
+              createLog(`Visitor at the table with id=${bots[i].table} gets his order. Now table in state CHOOSING`);
               bots[i] = {
                 state: 0,
                 table: 0
@@ -68,6 +73,7 @@ const pingBot = async (i) => {
         await work(i + 1, "table-" + bots[i].table);
         setTimeout(function () {
           turnTable(bots[i].table, 'empty', 0);
+          createLog(`Robot have cleaned the table with id=${bots[i].table}. Now table in state EMPTY`);
           bots[i] = {
             state: 0,
             table: 0
@@ -80,7 +86,6 @@ const pingBot = async (i) => {
       work(i + 1, "bar");
     }
   }
-
 }
 
 const animateTable = () => {
@@ -90,7 +95,8 @@ const animateTable = () => {
     table.addEventListener('click', (event) => {
       let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
       if (tableStates[tableIndex] == 1) {
-        turnTable(tableIndex + 1, 'waiting', 2)
+        createLog(`Table with id=${tableIndex + 1} now in state WAITING`);
+        turnTable(tableIndex + 1, 'waiting', 2);
         taskOrder.push({ state: 1, table: tableIndex + 1 });
         for (let i = 0; i < bots.length; i++) {
           pingBot(i);
@@ -101,6 +107,7 @@ const animateTable = () => {
       event.preventDefault();
       let tableIndex = parseInt(event.target.id[event.target.id.length - 1]) - 1;
       if (tableStates[tableIndex] == 1) {
+        createLog(`Visitor left table with id=${tableIndex + 1}. Now this table in state DIRTY`);
         turnTable(tableIndex + 1, 'dirty', 3)
         taskOrder.push({ state: 2, table: tableIndex + 1 });
         for (let i = 0; i < bots.length; i++) {
@@ -110,7 +117,6 @@ const animateTable = () => {
     })
   }
 }
-
 
 const moveRobot = (robot, to) => {
   robot.classList.add('run');
@@ -143,6 +149,30 @@ const moveRobot = (robot, to) => {
   }, time);
 }
 
+const createLog = (text) => {
+  let currentDateTime = new Date().toLocaleString();
+  logs.push(`${currentDateTime}: ${text}`);
+}
+
+const downloadLogs = () => {
+  let logsContentToWrite = logs.join('\r\n');
+  console.dir(logsContentToWrite);
+  downloadTextAsFile(logsFileName, logsContentToWrite);
+}
+
+const downloadTextAsFile = (filename, text) => {
+  let element = document.createElement('a');
+  element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+  element.setAttribute('download', filename);
+
+  element.style.display = 'none';
+  document.body.appendChild(element);
+
+  element.click();
+
+  document.body.removeChild(element);
+}
+
 const animate = () => {
   animateTable();
 
@@ -150,6 +180,7 @@ const animate = () => {
     for (let i = 0; i < tableStates.length; i++) {
       if (tableStates[i] == 0) {
         turnTable(i + 1, 'choosing', 1);
+        createLog(`New visitor at the table with id=${i + 1}`);
         break;
       }
     }
@@ -168,6 +199,8 @@ const animate = () => {
         onBar: false
       }
     ];
+
+    createLog("FIRE!!!");
 
     let dirtyTables = [];
     for (let i = 0; i < tableStates.length; i++) {
@@ -190,6 +223,11 @@ const animate = () => {
     }
   })
 
+  document.getElementById('logs').addEventListener('click', () => {
+    downloadLogs();
+  })
+
+  createLog("The restaurant is open");
 }
 
 window.onload = animate;
